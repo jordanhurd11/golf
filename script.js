@@ -6,6 +6,11 @@ const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 // https://nominatim.org/release-docs/latest/api/Search/
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
+// ipwho.is — approximate location from IP address, no key/permission needed.
+// Fallback for when the browser Geolocation API fails (e.g. OS-level
+// Location Services turned off, common on locked-down desktops).
+const IP_GEOLOCATION_URL = "https://ipwho.is/";
+
 const DEFAULT_QUERY = "Boston, MA";
 const RADIUS_METERS = 40000;
 const FAVORITES_KEY = "golf-favorites";
@@ -29,10 +34,17 @@ const submitBtn = form.querySelector("button");
 let currentCourses = [];
 let viewMode = "search"; // "search" | "favorites"
 let lastAction = () => runSearch(DEFAULT_QUERY);
+let awaitingLocationPermission = false;
 
 class NotFoundError extends Error {}
 class RateLimitError extends Error {}
-class GeolocationError extends Error {}
+
+class GeolocationError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.code = code; // "PERMISSION_DENIED" | "POSITION_UNAVAILABLE" | "TIMEOUT" | "UNSUPPORTED"
+  }
+}
 
 async function geocodePlace(query) {
   const url = `${NOMINATIM_URL}?format=json&limit=1&q=${encodeURIComponent(query)}`;
@@ -378,7 +390,7 @@ async function runSearch(query) {
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new GeolocationError("Geolocation isn't supported in this browser."));
+      reject(new GeolocationError("Geolocation isn't supported in this browser.", "UNSUPPORTED"));
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -387,20 +399,68 @@ function getCurrentPosition() {
         // Desktops have no GPS, so this relies on Wi-Fi/IP positioning
         // through the OS — POSITION_UNAVAILABLE almost always means the
         // OS-level location service itself is turned off, not a bug here.
-        let message;
         if (err.code === err.PERMISSION_DENIED) {
-          message = "Location access was denied. Enable it in your browser's site settings, or search by name instead.";
+          reject(
+            new GeolocationError(
+              "Location access was denied. Enable it in your browser's site settings, or search by name instead.",
+              "PERMISSION_DENIED"
+            )
+          );
         } else if (err.code === err.POSITION_UNAVAILABLE) {
-          message =
-            "Your device couldn't determine a location — this usually means Location Services are turned off at the OS level (Windows: Settings → Privacy & security → Location). Search by name instead for now.";
+          reject(
+            new GeolocationError(
+              "Your device couldn't determine a precise location — falling back to an approximate one.",
+              "POSITION_UNAVAILABLE"
+            )
+          );
         } else {
-          message = "Location took too long to respond. Try again, or search by name instead.";
+          reject(new GeolocationError("Location took too long to respond — falling back to an approximate one.", "TIMEOUT"));
         }
-        reject(new GeolocationError(message));
       },
-      { timeout: 15000 }
+      { timeout: 30000 }
     );
   });
+}
+
+// No permission prompt needed at all — this works even when OS-level
+// Location Services are off, at city-level accuracy instead of GPS/Wi-Fi
+// precision. Used as a fallback so "Near me" still does something useful
+// on locked-down desktops.
+async function geolocateViaIp() {
+  const response = await fetch(IP_GEOLOCATION_URL);
+  if (!response.ok) {
+    throw new Error(`IP geolocation error: ${response.status}`);
+  }
+  const data = await response.json();
+  if (!data.success || data.latitude == null || data.longitude == null) {
+    throw new Error("IP geolocation returned no coordinates");
+  }
+  const place = [data.city, data.region].filter(Boolean).join(", ");
+  return {
+    lat: data.latitude,
+    lon: data.longitude,
+    label: place ? `${place} (approximate, based on your network)` : "your approximate location",
+  };
+}
+
+// If geolocation was denied and the user later flips the browser's site
+// permission to "Allow" (without reloading), auto-retry instead of making
+// them click "Near me" again.
+function watchGeolocationPermission() {
+  if (!navigator.permissions?.query) return; // not supported in every browser (e.g. Safari)
+  navigator.permissions
+    .query({ name: "geolocation" })
+    .then((status) => {
+      status.onchange = () => {
+        if (status.state === "granted" && awaitingLocationPermission) {
+          awaitingLocationPermission = false;
+          useMyLocation();
+        }
+      };
+    })
+    .catch(() => {
+      // Permissions API doesn't cover "geolocation" in every browser — ignore.
+    });
 }
 
 async function useMyLocation() {
@@ -413,18 +473,26 @@ async function useMyLocation() {
   renderRecentSearches();
 
   try {
-    const { lat, lon } = await getCurrentPosition();
-    await loadAndRenderCourses(lat, lon, "your location");
+    let lat;
+    let lon;
+    let label;
+    try {
+      ({ lat, lon } = await getCurrentPosition());
+      label = "your location";
+    } catch (geoErr) {
+      console.error(geoErr);
+      awaitingLocationPermission = geoErr instanceof GeolocationError && geoErr.code === "PERMISSION_DENIED";
+      ({ lat, lon, label } = await geolocateViaIp());
+    }
+    await loadAndRenderCourses(lat, lon, label);
   } catch (err) {
     console.error(err);
     resultsEl.innerHTML = "";
-    if (err instanceof GeolocationError) {
-      messageEl.textContent = err.message;
-    } else if (err instanceof RateLimitError) {
+    if (err instanceof RateLimitError) {
       messageEl.textContent = "You're searching a bit too fast for this free API. Wait a few seconds and try again.";
       retryBtn.hidden = false;
     } else {
-      messageEl.textContent = "Something went wrong loading golf courses. Please try again in a moment.";
+      messageEl.textContent = "Couldn't determine your location, even approximately. Try searching by name instead.";
       retryBtn.hidden = false;
     }
   } finally {
@@ -444,6 +512,7 @@ form.addEventListener("submit", (e) => {
 
 locateBtn.addEventListener("click", () => useMyLocation());
 retryBtn.addEventListener("click", () => lastAction());
+watchGeolocationPermission();
 
 updateFavoritesButton();
 runSearch(DEFAULT_QUERY);
