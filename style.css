@@ -24,10 +24,72 @@ header h1 {
   opacity: 0.8;
 }
 
+#search-form {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 500px;
+  margin: 0 auto 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+#search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 1rem;
+}
+
+#search-form button {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  background: #f4f4f0;
+  color: #0f3d2e;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#search-form button:disabled,
+#search-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  #search-form {
+    flex-direction: column;
+  }
+}
+
 #status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
   text-align: center;
-  min-height: 1.5rem;
+  min-height: 2.5rem;
   margin-bottom: 1rem;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(244, 244, 240, 0.3);
+  border-top-color: #f4f4f0;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+#message {
+  margin: 0;
+  opacity: 0.9;
 }
 
 .course-grid {
@@ -62,4 +124,29 @@ header h1 {
   margin-top: 0.5rem;
   font-size: 0.85rem;
   color: #0f3d2e;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  margin-top: 0.4rem;
+}
+
+.badge-public { background: #d4edda; color: #1e6b34; }
+.badge-private { background: #f8d7da; color: #8a1c26; }
+.badge-restricted { background: #fff3cd; color: #7a5b00; }
+.badge-unknown { background: #e2e2e2; color: #555; }
+
+footer {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+footer a {
+  color: inherit;
 }

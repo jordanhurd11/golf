@@ -13,9 +13,22 @@
   </header>
 
   <main>
-    <div id="status"></div>
+    <form id="search-form">
+      <input type="text" id="search-input" placeholder="Search a city or region (e.g. Pebble Beach, CA)" aria-label="Search location">
+      <button type="submit">Search</button>
+    </form>
+
+    <div id="status" aria-live="polite">
+      <div id="spinner" class="spinner" hidden></div>
+      <p id="message"></p>
+    </div>
+
     <div id="results" class="course-grid"></div>
   </main>
+
+  <footer>
+    <p>Course data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL)</p>
+  </footer>
 
   <script src="script.js"></script>
 </body>
