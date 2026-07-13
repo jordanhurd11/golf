@@ -31,20 +31,23 @@ Both confirmed working with a plain `fetch()` from the browser (no CORS proxy ne
 - [x] Single `fetch()` to Overpass, `console.log`'d
 - [x] Render 5 course cards (name, address, map link)
 
-### Iteration 2 — Interactivity and Design
-- [ ] Search input for a place name → `fetch()` Nominatim to geocode it → `fetch()` Overpass with those coordinates
-- [ ] Replace hardcoded Boston default with the search result (keep Boston as the initial/default view)
-- [ ] Show public/private status on each card: label from `access`/`ownership` if present, else "Unknown"
-- [ ] Show a "Visit website →" link when `website` tag exists; fall back to the OSM map link otherwise
-- [ ] Loading indicator while either fetch is in flight
-- [ ] Error state: geocoding fails (bad/unrecognized place name), Overpass fails, or zero results — each needs a distinct, friendly message
-- [ ] Responsive grid (already scaffolded in `style.css`; verify at mobile width)
+### Iteration 2 — Interactivity and Design (done)
+- [x] Search input for a place name → `fetch()` Nominatim to geocode it → `fetch()` Overpass with those coordinates
+- [x] Replace hardcoded Boston default with the search result (keep Boston as the initial/default view)
+- [x] Show public/private status on each card: label from `access`/`ownership` if present, else "Unknown"
+- [x] Show a "Visit website →" link when `website` tag exists; fall back to the OSM map link otherwise
+- [x] Loading indicator while either fetch is in flight
+- [x] Error state: geocoding fails (bad/unrecognized place name), Overpass fails, or zero results — each needs a distinct, friendly message
+- [x] Responsive grid (verified at 375px — no horizontal overflow, form stacks to column)
 
 ### Iteration 3 — Polish and Extend
-- [ ] Extension: localStorage favorites (save/remove a course, persist across reloads)
-- [ ] Edge cases: empty search input, search with no results, rapid repeated searches (avoid stale results overwriting newer ones)
-- [ ] Lighthouse audit + fix flagged issues
-- [ ] Classmate feedback pass
+- [x] Extension: localStorage favorites (star toggle per card, "☆ Favorites (n)" view with its own empty state, persists across reloads)
+- [x] Edge case: empty search input → "Type a city or region to search"
+- [x] Edge case: search with no results → distinct message, no broken layout
+- [x] Edge case: API rate limit (HTTP 429) → distinct message + "Try again" button, confirmed against a real 429 from Overpass during testing
+- [x] Edge case: generic API failure (confirmed against a real 504 from Overpass) → "Try again" button using the last query
+- [ ] Lighthouse audit — no Chrome/Node CLI available in the dev environment; needs to be run manually (Chrome DevTools → Lighthouse tab → run against the deployed GitHub Pages URL). Manual pass already covers: meta description, favicon, `lang` attribute, `rel="noopener"` on external links, color contrast, keyboard-reachable controls, `aria-label`/`aria-pressed` on icon-only buttons
+- [ ] Classmate feedback pass — needs an actual person, not AI
 
 ## Non-functional requirements
 - No API keys committed or required — must run as a static site on GitHub Pages
