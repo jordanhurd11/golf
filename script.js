@@ -28,10 +28,12 @@ const messageEl = document.getElementById("message");
 const retryBtn = document.getElementById("retry-btn");
 const favToggleBtn = document.getElementById("favorites-toggle");
 const resultsCountEl = document.getElementById("results-count");
+const sortSelect = document.getElementById("sort-select");
 const resultsEl = document.getElementById("results");
 const submitBtn = form.querySelector("button");
 
 let currentCourses = [];
+let currentSort = "distance"; // "distance" | "name"
 let viewMode = "search"; // "search" | "favorites"
 let lastAction = () => runSearch(DEFAULT_QUERY);
 let awaitingLocationPermission = false;
@@ -206,16 +208,28 @@ function parseCourses(elements) {
     .slice(0, 12);
 }
 
+function sortCourses(courses, mode) {
+  const sorted = [...courses];
+  if (mode === "name") {
+    sorted.sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    // "distance" — courses without a distance (e.g. the favorites view has
+    // no search origin to measure from) sort to the end instead of first.
+    sorted.sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
+  }
+  return sorted;
+}
+
 function renderCourses(courses) {
-  currentCourses = courses;
+  currentCourses = sortCourses(courses, currentSort);
   const favorites = loadFavorites();
 
-  resultsCountEl.textContent = courses.length
-    ? `${courses.length} course${courses.length === 1 ? "" : "s"} found`
+  resultsCountEl.textContent = currentCourses.length
+    ? `${currentCourses.length} course${currentCourses.length === 1 ? "" : "s"} found`
     : "";
 
-  resultsEl.innerHTML = courses
-    .map((course) => {
+  resultsEl.innerHTML = currentCourses
+    .map((course, index) => {
       const mapUrl = `https://www.openstreetmap.org/${course.type}/${course.id}`;
       const useWebsite = course.website && isHttpUrl(course.website);
       const linkHref = useWebsite ? course.website : mapUrl;
@@ -225,9 +239,12 @@ function renderCourses(courses) {
         course.access ? `<span class="badge ${course.access.className}">${course.access.label}</span>` : "",
         course.holes ? `<span class="badge badge-holes">${course.holes}</span>` : "",
       ].join("");
+      // Staggers each card's entrance slightly after the previous one,
+      // capped so a long results list doesn't feel sluggish to finish.
+      const animationDelay = `${Math.min(index, 10) * 0.05}s`;
 
       return `
-        <div class="course-card">
+        <div class="course-card" style="animation-delay: ${animationDelay}">
           <button class="fav-btn" data-key="${courseKey(course)}" aria-pressed="${favorited}" aria-label="${favorited ? "Remove from favorites" : "Add to favorites"}">${favorited ? "★" : "☆"}</button>
           <h2>${escapeHtml(course.name)}</h2>
           ${course.distanceMiles != null ? `<p class="distance">${course.distanceMiles.toFixed(1)} mi away</p>` : ""}
@@ -239,6 +256,11 @@ function renderCourses(courses) {
     })
     .join("");
 }
+
+sortSelect.addEventListener("change", () => {
+  currentSort = sortSelect.value;
+  renderCourses(currentCourses);
+});
 
 function renderSkeletons(count = 6) {
   resultsCountEl.textContent = "";

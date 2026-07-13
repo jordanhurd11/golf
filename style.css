@@ -218,13 +218,53 @@ main {
   margin-top: 0.35rem;
 }
 
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 1080px;
+  margin: 0 auto 1rem;
+  flex-wrap: wrap;
+}
+
 #results-count {
-  text-align: center;
   font-size: 0.82rem;
   color: var(--ink-dim);
-  margin: 0 0 1rem;
+  margin: 0;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+}
+
+.sort-control select {
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(244, 244, 240, 0.25);
+  background: rgba(244, 244, 240, 0.08);
+  color: var(--ink);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.sort-control select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The open dropdown list is rendered by the OS/browser with its own
+   (usually light) background, not our translucent pill — force dark text
+   on the options themselves so they stay legible there. */
+.sort-control select option {
+  color: #1a1a1a;
+  background: #ffffff;
 }
 
 #status {

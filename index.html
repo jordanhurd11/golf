@@ -33,7 +33,16 @@
       <button id="retry-btn" type="button" hidden>Try again</button>
     </div>
 
-    <p id="results-count"></p>
+    <div class="results-toolbar">
+      <p id="results-count"></p>
+      <label class="sort-control">
+        Sort
+        <select id="sort-select">
+          <option value="distance">Nearest</option>
+          <option value="name">Name (A–Z)</option>
+        </select>
+      </label>
+    </div>
     <div id="results" class="course-grid"></div>
   </main>
 
