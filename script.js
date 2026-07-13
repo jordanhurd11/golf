@@ -7,7 +7,7 @@ const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 const DEFAULT_QUERY = "Boston, MA";
-const RADIUS_METERS = 20000;
+const RADIUS_METERS = 40000;
 const FAVORITES_KEY = "golf-favorites";
 const RECENT_SEARCHES_KEY = "golf-recent-searches";
 const MAX_RECENT_SEARCHES = 5;
