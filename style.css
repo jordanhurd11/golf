@@ -58,10 +58,53 @@ header h1 {
   cursor: not-allowed;
 }
 
+#locate-btn {
+  padding: 0.6rem 1rem;
+  border: 1px solid rgba(244, 244, 240, 0.5);
+  border-radius: 8px;
+  background: transparent;
+  color: #f4f4f0;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#locate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 480px) {
   #search-form {
     flex-direction: column;
   }
+}
+
+.recent-searches {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.recent-label {
+  opacity: 0.7;
+  margin-right: 0.4rem;
+}
+
+.chip {
+  display: inline-block;
+  margin: 0.15rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgba(244, 244, 240, 0.3);
+  border-radius: 999px;
+  background: rgba(244, 244, 240, 0.08);
+  color: #f4f4f0;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: rgba(244, 244, 240, 0.18);
 }
 
 .view-toggle {
@@ -88,6 +131,13 @@ header h1 {
 
 #retry-btn {
   margin-top: 0.25rem;
+}
+
+#results-count {
+  text-align: center;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin: 0 0 0.75rem;
 }
 
 #status {
@@ -134,6 +184,17 @@ header h1 {
   padding: 1rem;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   animation: fade-in 0.25s ease both;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.course-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+}
+
+.distance {
+  font-weight: 600;
+  color: #0f3d2e;
 }
 
 @keyframes fade-in {
@@ -188,6 +249,34 @@ header h1 {
 .badge-private { background: #f8d7da; color: #8a1c26; }
 .badge-restricted { background: #fff3cd; color: #7a5b00; }
 .badge-unknown { background: #e2e2e2; color: #555; }
+.badge-holes { background: #dbe9f7; color: #1a4971; margin-left: 0.35rem; }
+
+.skeleton {
+  animation: none;
+}
+
+.skeleton-line {
+  height: 0.8rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #e8e8e8 25%, #f4f4f4 50%, #e8e8e8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+  margin: 0.5rem 0;
+}
+
+.skeleton-title {
+  width: 60%;
+  height: 1.1rem;
+}
+
+.skeleton-short {
+  width: 40%;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
 footer {
   text-align: center;

@@ -9,23 +9,30 @@ const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const DEFAULT_QUERY = "Boston, MA";
 const RADIUS_METERS = 20000;
 const FAVORITES_KEY = "golf-favorites";
+const RECENT_SEARCHES_KEY = "golf-recent-searches";
+const MAX_RECENT_SEARCHES = 5;
+const EARTH_RADIUS_MILES = 3958.8;
 
 const form = document.getElementById("search-form");
 const input = document.getElementById("search-input");
+const locateBtn = document.getElementById("locate-btn");
+const recentEl = document.getElementById("recent-searches");
 const subtitleEl = document.getElementById("subtitle");
 const spinner = document.getElementById("spinner");
 const messageEl = document.getElementById("message");
 const retryBtn = document.getElementById("retry-btn");
 const favToggleBtn = document.getElementById("favorites-toggle");
+const resultsCountEl = document.getElementById("results-count");
 const resultsEl = document.getElementById("results");
 const submitBtn = form.querySelector("button");
 
 let currentCourses = [];
 let viewMode = "search"; // "search" | "favorites"
-let lastQuery = DEFAULT_QUERY;
+let lastAction = () => runSearch(DEFAULT_QUERY);
 
 class NotFoundError extends Error {}
 class RateLimitError extends Error {}
+class GeolocationError extends Error {}
 
 async function geocodePlace(query) {
   const url = `${NOMINATIM_URL}?format=json&limit=1&q=${encodeURIComponent(query)}`;
@@ -90,6 +97,40 @@ function courseKey(course) {
   return `${course.type}-${course.id}`;
 }
 
+function getHolesLabel(tags) {
+  if (tags["golf:course"] === "9_hole") return "9 holes";
+  if (tags["golf:course"] === "18_hole") return "18 holes";
+  if (tags.holes) return `${tags.holes} holes`;
+  return null;
+}
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
+function distanceInMiles(lat1, lon1, lat2, lon2) {
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) ** 2;
+  return EARTH_RADIUS_MILES * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Attaches distance from the search origin and sorts nearest-first.
+// Courses without usable coordinates sort to the end instead of crashing.
+function withDistances(courses, originLat, originLon) {
+  return courses
+    .map((course) => ({
+      ...course,
+      distanceMiles:
+        course.lat != null && course.lon != null
+          ? distanceInMiles(originLat, originLon, course.lat, course.lon)
+          : null,
+    }))
+    .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
+}
+
 function loadFavorites() {
   try {
     return JSON.parse(localStorage.getItem(FAVORITES_KEY)) ?? [];
@@ -105,7 +146,10 @@ function toggleFavorite(course) {
   if (index >= 0) {
     favorites.splice(index, 1);
   } else {
-    favorites.push(course);
+    // distanceMiles is only meaningful for the search that produced it —
+    // don't persist a number that'll be stale/wrong in the favorites view.
+    const { distanceMiles, ...toSave } = course;
+    favorites.push(toSave);
   }
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
   updateFavoritesButton();
@@ -143,6 +187,9 @@ function parseCourses(elements) {
       street: el.tags["addr:street"],
       website: el.tags.website,
       access: getAccessInfo(el.tags),
+      holes: getHolesLabel(el.tags),
+      lat: el.lat ?? el.center?.lat,
+      lon: el.lon ?? el.center?.lon,
     }))
     .slice(0, 12);
 }
@@ -150,6 +197,10 @@ function parseCourses(elements) {
 function renderCourses(courses) {
   currentCourses = courses;
   const favorites = loadFavorites();
+
+  resultsCountEl.textContent = courses.length
+    ? `${courses.length} course${courses.length === 1 ? "" : "s"} found`
+    : "";
 
   resultsEl.innerHTML = courses
     .map((course) => {
@@ -163,14 +214,70 @@ function renderCourses(courses) {
         <div class="course-card">
           <button class="fav-btn" data-key="${courseKey(course)}" aria-pressed="${favorited}" aria-label="${favorited ? "Remove from favorites" : "Add to favorites"}">${favorited ? "★" : "☆"}</button>
           <h2>${escapeHtml(course.name)}</h2>
+          ${course.distanceMiles != null ? `<p class="distance">${course.distanceMiles.toFixed(1)} mi away</p>` : ""}
           ${course.street ? `<p>${escapeHtml(course.street)}${course.city ? ", " + escapeHtml(course.city) : ""}</p>` : ""}
-          <div><span class="badge ${course.access.className}">${course.access.label}</span></div>
+          <div>
+            <span class="badge ${course.access.className}">${course.access.label}</span>
+            ${course.holes ? `<span class="badge badge-holes">${course.holes}</span>` : ""}
+          </div>
           <p><a href="${linkHref}" target="_blank" rel="noopener">${linkLabel}</a></p>
         </div>
       `;
     })
     .join("");
 }
+
+function renderSkeletons(count = 6) {
+  resultsCountEl.textContent = "";
+  resultsEl.innerHTML = Array.from({ length: count })
+    .map(
+      () => `
+        <div class="course-card skeleton">
+          <div class="skeleton-line skeleton-title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-short"></div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function loadRecentSearches() {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY)) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentSearch(query) {
+  const recents = [query, ...loadRecentSearches().filter((q) => q.toLowerCase() !== query.toLowerCase())].slice(
+    0,
+    MAX_RECENT_SEARCHES
+  );
+  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(recents));
+  renderRecentSearches();
+}
+
+function renderRecentSearches() {
+  const recents = loadRecentSearches();
+  if (viewMode === "favorites" || recents.length === 0) {
+    recentEl.innerHTML = "";
+    return;
+  }
+  recentEl.innerHTML =
+    `<span class="recent-label">Recent:</span>` +
+    recents
+      .map((q) => `<button type="button" class="chip" data-query="${escapeHtml(q)}">${escapeHtml(q)}</button>`)
+      .join("");
+}
+
+recentEl.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  input.value = chip.dataset.query;
+  runSearch(chip.dataset.query);
+});
 
 resultsEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".fav-btn");
@@ -196,13 +303,14 @@ function showFavoritesView() {
     : "No favorites yet — search for courses and tap ☆ to save one";
   messageEl.textContent = "";
   retryBtn.hidden = true;
+  renderRecentSearches();
   renderCourses(favorites);
   updateFavoritesButton();
 }
 
 favToggleBtn.addEventListener("click", () => {
   if (viewMode === "favorites") {
-    runSearch(lastQuery);
+    lastAction();
   } else {
     showFavoritesView();
   }
@@ -213,34 +321,97 @@ function setLoading(isLoading) {
   submitBtn.disabled = isLoading;
   input.disabled = isLoading;
   favToggleBtn.disabled = isLoading;
+  locateBtn.disabled = isLoading;
+  if (isLoading) {
+    renderSkeletons();
+  }
+}
+
+// Shared by both a typed search and "Near me" once we have coordinates and
+// a human-readable label for them.
+async function loadAndRenderCourses(lat, lon, label) {
+  subtitleEl.textContent = `Golf courses near ${label}`;
+
+  const data = await fetchGolfCourses(lat, lon, RADIUS_METERS);
+  console.log("Overpass API response:", data); // inspect this in devtools!
+
+  const courses = withDistances(parseCourses(data.elements), lat, lon);
+  if (courses.length === 0) {
+    resultsEl.innerHTML = "";
+    messageEl.textContent = `No golf courses found near "${label}". Try a different location.`;
+  } else {
+    renderCourses(courses);
+  }
 }
 
 async function runSearch(query) {
   viewMode = "search";
-  lastQuery = query;
+  lastAction = () => runSearch(query);
   setLoading(true);
   messageEl.textContent = "";
   retryBtn.hidden = true;
-  resultsEl.innerHTML = "";
   updateFavoritesButton();
+  renderRecentSearches();
 
   try {
     const place = await geocodePlace(query);
-    subtitleEl.textContent = `Golf courses near ${place.displayName}`;
-
-    const data = await fetchGolfCourses(place.lat, place.lon, RADIUS_METERS);
-    console.log("Overpass API response:", data); // inspect this in devtools!
-
-    const courses = parseCourses(data.elements);
-    if (courses.length === 0) {
-      messageEl.textContent = `No golf courses found near "${query}". Try a different location.`;
-    } else {
-      renderCourses(courses);
-    }
+    await loadAndRenderCourses(place.lat, place.lon, place.displayName);
+    saveRecentSearch(query);
   } catch (err) {
     console.error(err);
+    resultsEl.innerHTML = "";
     if (err instanceof NotFoundError) {
       messageEl.textContent = `Couldn't find "${query}". Try a more specific place name (e.g. add a state or country).`;
+    } else if (err instanceof RateLimitError) {
+      messageEl.textContent = "You're searching a bit too fast for this free API. Wait a few seconds and try again.";
+      retryBtn.hidden = false;
+    } else {
+      messageEl.textContent = "Something went wrong loading golf courses. Please try again in a moment.";
+      retryBtn.hidden = false;
+    }
+  } finally {
+    setLoading(false);
+  }
+}
+
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new GeolocationError("Geolocation isn't supported in this browser."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      (err) =>
+        reject(
+          new GeolocationError(
+            err.code === err.PERMISSION_DENIED
+              ? "Location access was denied. Enable it in your browser settings, or search by name instead."
+              : "Couldn't get your location. Try searching by name instead."
+          )
+        ),
+      { timeout: 10000 }
+    );
+  });
+}
+
+async function useMyLocation() {
+  viewMode = "search";
+  lastAction = () => useMyLocation();
+  setLoading(true);
+  messageEl.textContent = "";
+  retryBtn.hidden = true;
+  updateFavoritesButton();
+  renderRecentSearches();
+
+  try {
+    const { lat, lon } = await getCurrentPosition();
+    await loadAndRenderCourses(lat, lon, "your location");
+  } catch (err) {
+    console.error(err);
+    resultsEl.innerHTML = "";
+    if (err instanceof GeolocationError) {
+      messageEl.textContent = err.message;
     } else if (err instanceof RateLimitError) {
       messageEl.textContent = "You're searching a bit too fast for this free API. Wait a few seconds and try again.";
       retryBtn.hidden = false;
@@ -263,7 +434,8 @@ form.addEventListener("submit", (e) => {
   runSearch(query);
 });
 
-retryBtn.addEventListener("click", () => runSearch(lastQuery));
+locateBtn.addEventListener("click", () => useMyLocation());
+retryBtn.addEventListener("click", () => lastAction());
 
 updateFavoritesButton();
 runSearch(DEFAULT_QUERY);

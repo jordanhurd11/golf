@@ -18,7 +18,10 @@
     <form id="search-form">
       <input type="text" id="search-input" placeholder="Search a city or region (e.g. Pebble Beach, CA)" aria-label="Search location">
       <button type="submit">Search</button>
+      <button type="button" id="locate-btn">📍 Near me</button>
     </form>
+
+    <div id="recent-searches" class="recent-searches"></div>
 
     <div class="view-toggle">
       <button id="favorites-toggle" type="button">☆ Favorites (0)</button>
@@ -30,6 +33,7 @@
       <button id="retry-btn" type="button" hidden>Try again</button>
     </div>
 
+    <p id="results-count"></p>
     <div id="results" class="course-grid"></div>
   </main>
 
