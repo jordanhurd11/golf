@@ -19,7 +19,7 @@ Both confirmed working with a plain `fetch()` from the browser (no CORS proxy ne
 ### Relevant OSM tags per course
 - `name` — present on effectively all courses (required to display a course at all)
 - `addr:street`, `addr:city` — present on some, not all
-- `access` (`yes`/`private`/`restricted`/`customers`) and/or `ownership` (`private`/`municipal`) — present on roughly 1 in 10 courses in a sampled test of 80 MA courses; **must default to "Unknown" when absent**
+- `access` (`yes`/`private`/`restricted`/`customers`) and/or `ownership` (`private`/`municipal`) — present on roughly 1 in 10 courses in a sampled test of 80 MA courses; when absent, the badge is simply omitted rather than showing a hedge like "Unknown"
 - `website`, `phone` — present on some; used as the outbound link for pricing/tee-time info since OSM has no fee field
 - `fee` — checked; not present on any course in the sample. **Not a feature we can build.**
 - `type` (`node`/`way`/`relation`) + `id` — used to build the `openstreetmap.org` map link; `way`/`relation` report location as `center.lat`/`center.lon` instead of top-level `lat`/`lon`
@@ -34,7 +34,7 @@ Both confirmed working with a plain `fetch()` from the browser (no CORS proxy ne
 ### Iteration 2 — Interactivity and Design (done)
 - [x] Search input for a place name → `fetch()` Nominatim to geocode it → `fetch()` Overpass with those coordinates
 - [x] Replace hardcoded Boston default with the search result (keep Boston as the initial/default view)
-- [x] Show public/private status on each card: label from `access`/`ownership` if present, else "Unknown"
+- [x] Show public/private status on each card when `access`/`ownership` is tagged; omit the badge entirely otherwise (revised after initial "Unknown" label felt noisy on the ~90% of cards without it)
 - [x] Show a "Visit website →" link when `website` tag exists; fall back to the OSM map link otherwise
 - [x] Loading indicator while either fetch is in flight
 - [x] Error state: geocoding fails (bad/unrecognized place name), Overpass fails, or zero results — each needs a distinct, friendly message

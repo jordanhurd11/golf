@@ -248,7 +248,6 @@ header h1 {
 .badge-public { background: #d4edda; color: #1e6b34; }
 .badge-private { background: #f8d7da; color: #8a1c26; }
 .badge-restricted { background: #fff3cd; color: #7a5b00; }
-.badge-unknown { background: #e2e2e2; color: #555; }
 .badge-holes { background: #dbe9f7; color: #1a4971; margin-left: 0.35rem; }
 
 .skeleton {

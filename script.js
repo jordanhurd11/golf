@@ -81,8 +81,8 @@ async function fetchGolfCourses(lat, lon, radius) {
   return response.json();
 }
 
-// Public/private is only tagged on a minority of courses in OSM — default
-// to "Unknown" rather than guessing.
+// Public/private is only tagged on a minority of courses in OSM — omit the
+// badge entirely rather than showing a hedge like "Unknown" on every card.
 function getAccessInfo(tags) {
   if (tags.access === "private") return { label: "Private", className: "badge-private" };
   if (tags.access === "yes" || tags.access === "permissive") return { label: "Public", className: "badge-public" };
@@ -90,7 +90,7 @@ function getAccessInfo(tags) {
   if (tags.access === "restricted") return { label: "Restricted", className: "badge-restricted" };
   if (tags.ownership === "private") return { label: "Private", className: "badge-private" };
   if (tags.ownership === "municipal") return { label: "Public (municipal)", className: "badge-public" };
-  return { label: "Unknown", className: "badge-unknown" };
+  return null;
 }
 
 function courseKey(course) {
@@ -209,6 +209,10 @@ function renderCourses(courses) {
       const linkHref = useWebsite ? course.website : mapUrl;
       const linkLabel = useWebsite ? "Visit website →" : "View on map →";
       const favorited = favorites.some((f) => courseKey(f) === courseKey(course));
+      const badgesHtml = [
+        course.access ? `<span class="badge ${course.access.className}">${course.access.label}</span>` : "",
+        course.holes ? `<span class="badge badge-holes">${course.holes}</span>` : "",
+      ].join("");
 
       return `
         <div class="course-card">
@@ -216,10 +220,7 @@ function renderCourses(courses) {
           <h2>${escapeHtml(course.name)}</h2>
           ${course.distanceMiles != null ? `<p class="distance">${course.distanceMiles.toFixed(1)} mi away</p>` : ""}
           ${course.street ? `<p>${escapeHtml(course.street)}${course.city ? ", " + escapeHtml(course.city) : ""}</p>` : ""}
-          <div>
-            <span class="badge ${course.access.className}">${course.access.label}</span>
-            ${course.holes ? `<span class="badge badge-holes">${course.holes}</span>` : ""}
-          </div>
+          ${badgesHtml ? `<div>${badgesHtml}</div>` : ""}
           <p><a href="${linkHref}" target="_blank" rel="noopener">${linkLabel}</a></p>
         </div>
       `;
