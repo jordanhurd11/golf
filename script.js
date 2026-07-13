@@ -383,15 +383,22 @@ function getCurrentPosition() {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      (err) =>
-        reject(
-          new GeolocationError(
-            err.code === err.PERMISSION_DENIED
-              ? "Location access was denied. Enable it in your browser settings, or search by name instead."
-              : "Couldn't get your location. Try searching by name instead."
-          )
-        ),
-      { timeout: 10000 }
+      (err) => {
+        // Desktops have no GPS, so this relies on Wi-Fi/IP positioning
+        // through the OS — POSITION_UNAVAILABLE almost always means the
+        // OS-level location service itself is turned off, not a bug here.
+        let message;
+        if (err.code === err.PERMISSION_DENIED) {
+          message = "Location access was denied. Enable it in your browser's site settings, or search by name instead.";
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          message =
+            "Your device couldn't determine a location — this usually means Location Services are turned off at the OS level (Windows: Settings → Privacy & security → Location). Search by name instead for now.";
+        } else {
+          message = "Location took too long to respond. Try again, or search by name instead.";
+        }
+        reject(new GeolocationError(message));
+      },
+      { timeout: 15000 }
     );
   });
 }
