@@ -13,8 +13,9 @@ A web app that lets a user search any city/region and see real golf courses near
 |---|---|---|
 | [Nominatim](https://nominatim.org/release-docs/latest/api/Search/) | Geocode a place name the user types → `lat`/`lon` | No |
 | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) | Query OpenStreetMap for `leisure=golf_course` near that point | No |
+| [ipwho.is](https://ipwho.is/) | Approximate `lat`/`lon` from IP address — fallback when the browser Geolocation API fails or is denied | No |
 
-Both confirmed working with a plain `fetch()` from the browser (no CORS proxy needed) as of this writing.
+All three confirmed working with a plain `fetch()` from the browser (no CORS proxy needed) as of this writing. ipwho.is needs no permission prompt at all, since it isn't using the Geolocation API — that's exactly why it works as a fallback on desktops where OS-level Location Services are off.
 
 ### Relevant OSM tags per course
 - `name` — present on effectively all courses (required to display a course at all)
@@ -22,6 +23,7 @@ Both confirmed working with a plain `fetch()` from the browser (no CORS proxy ne
 - `access` (`yes`/`private`/`restricted`/`customers`) and/or `ownership` (`private`/`municipal`) — present on roughly 1 in 10 courses in a sampled test of 80 MA courses; when absent, the badge is simply omitted rather than showing a hedge like "Unknown"
 - `website`, `phone` — present on some; used as the outbound link for pricing/tee-time info since OSM has no fee field
 - `fee` — checked; not present on any course in the sample. **Not a feature we can build.**
+- `golf:course` (`9_hole`/`18_hole`) and, more rarely, a plain `holes` tag — present on a meaningful minority; shown as a badge when present, omitted otherwise
 - `type` (`node`/`way`/`relation`) + `id` — used to build the `openstreetmap.org` map link; `way`/`relation` report location as `center.lat`/`center.lon` instead of top-level `lat`/`lon`
 
 ## Functional requirements by iteration
@@ -49,6 +51,18 @@ Both confirmed working with a plain `fetch()` from the browser (no CORS proxy ne
 - [ ] Lighthouse audit — no Chrome/Node CLI available in the dev environment; needs to be run manually (Chrome DevTools → Lighthouse tab → run against the deployed GitHub Pages URL). Manual pass already covers: meta description, favicon, `lang` attribute, `rel="noopener"` on external links, color contrast, keyboard-reachable controls, `aria-label`/`aria-pressed` on icon-only buttons
 - [ ] Classmate feedback pass — needs an actual person, not AI
 
+### Beyond Iteration 3 — additional polish
+- [x] Distance from search origin on each card, results sorted nearest-first (haversine calc from the origin's `lat`/`lon`); courses missing coordinates sort to the end instead of crashing
+- [x] "Near me" button: browser Geolocation API first, falls back to `geolocateViaIp()` (ipwho.is) on any failure — denied, unavailable, timeout, or unsupported — so it degrades gracefully instead of just failing on desktops with OS-level Location Services off
+- [x] Auto-retry: if geolocation is denied and the user later grants it via browser settings, `navigator.permissions.query({name: "geolocation"}).onchange` detects the change and reruns "Near me" automatically
+- [x] Number-of-holes badge from `golf:course`/`holes` tags
+- [x] Recent searches (last 5, deduplicated, localStorage) as clickable chips; hidden while browsing favorites
+- [x] Skeleton loading cards instead of a bare spinner
+- [x] Results count line ("N courses found")
+- [x] Card hover lift (CSS transform/shadow)
+- [x] Public/private badge omitted entirely (not "Unknown") when untagged — revised from the original Iteration 2 plan after it felt noisy on ~90% of cards
+- [x] Race-condition guard: a request ID stamps each search so a slow, superseded search can't overwrite a newer one's results
+
 ## Non-functional requirements
 - No API keys committed or required — must run as a static site on GitHub Pages
 - Attribution to OpenStreetMap contributors (ODbL license) somewhere in the UI/footer
@@ -69,3 +83,4 @@ Both confirmed working with a plain `fetch()` from the browser (no CORS proxy ne
 - Loading and error states are visibly distinct from the normal state
 - No console errors on a clean load or a failed search
 - Works at mobile viewport widths without horizontal scroll or overlap
+- "Near me" produces a usable result (precise or approximate) on both mobile (GPS) and desktop (Wi-Fi positioning or, failing that, IP-based) rather than only working on one class of device
