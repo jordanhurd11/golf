@@ -396,9 +396,12 @@ function getCurrentPosition() {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
       (err) => {
-        // Desktops have no GPS, so this relies on Wi-Fi/IP positioning
-        // through the OS — POSITION_UNAVAILABLE almost always means the
-        // OS-level location service itself is turned off, not a bug here.
+        // Desktops have no GPS, so this relies on Wi-Fi-based positioning:
+        // the OS sends nearby Wi-Fi info to a backend service that resolves
+        // it into coordinates. POSITION_UNAVAILABLE can mean several things
+        // we can't distinguish from here — OS location setting off, or the
+        // network itself blocking that backend request (common on school/
+        // corporate Wi-Fi) — not necessarily a single specific cause.
         if (err.code === err.PERMISSION_DENIED) {
           reject(
             new GeolocationError(
@@ -422,10 +425,10 @@ function getCurrentPosition() {
   });
 }
 
-// No permission prompt needed at all — this works even when OS-level
-// Location Services are off, at city-level accuracy instead of GPS/Wi-Fi
-// precision. Used as a fallback so "Near me" still does something useful
-// on locked-down desktops.
+// No permission prompt needed at all, and no dependency on the OS location
+// stack or the network path it needs — it only needs the IP the request
+// itself arrives from, so it works regardless of *why* precise geolocation
+// failed. Lower accuracy (city-level, not GPS/Wi-Fi-level) in exchange.
 async function geolocateViaIp() {
   const response = await fetch(IP_GEOLOCATION_URL);
   if (!response.ok) {

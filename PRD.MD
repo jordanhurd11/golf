@@ -15,7 +15,7 @@ A web app that lets a user search any city/region and see real golf courses near
 | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) | Query OpenStreetMap for `leisure=golf_course` near that point | No |
 | [ipwho.is](https://ipwho.is/) | Approximate `lat`/`lon` from IP address — fallback when the browser Geolocation API fails or is denied | No |
 
-All three confirmed working with a plain `fetch()` from the browser (no CORS proxy needed) as of this writing. ipwho.is needs no permission prompt at all, since it isn't using the Geolocation API — that's exactly why it works as a fallback on desktops where OS-level Location Services are off.
+All three confirmed working with a plain `fetch()` from the browser (no CORS proxy needed) as of this writing. ipwho.is needs no permission prompt at all, since it isn't using the Geolocation API — that's exactly why it works as a fallback regardless of *why* precise geolocation failed (OS location setting off, the network blocking the Wi-Fi-positioning backend, or something else we can't distinguish from the browser's `POSITION_UNAVAILABLE` error alone).
 
 ### Relevant OSM tags per course
 - `name` — present on effectively all courses (required to display a course at all)
@@ -53,7 +53,7 @@ All three confirmed working with a plain `fetch()` from the browser (no CORS pro
 
 ### Beyond Iteration 3 — additional polish
 - [x] Distance from search origin on each card, results sorted nearest-first (haversine calc from the origin's `lat`/`lon`); courses missing coordinates sort to the end instead of crashing
-- [x] "Near me" button: browser Geolocation API first, falls back to `geolocateViaIp()` (ipwho.is) on any failure — denied, unavailable, timeout, or unsupported — so it degrades gracefully instead of just failing on desktops with OS-level Location Services off
+- [x] "Near me" button: browser Geolocation API first, falls back to `geolocateViaIp()` (ipwho.is) on any failure — denied, unavailable, timeout, or unsupported — so it degrades gracefully regardless of the underlying cause (OS setting, network blocking the positioning backend, etc.) instead of just failing
 - [x] Auto-retry: if geolocation is denied and the user later grants it via browser settings, `navigator.permissions.query({name: "geolocation"}).onchange` detects the change and reruns "Near me" automatically
 - [x] Number-of-holes badge from `golf:course`/`holes` tags
 - [x] Recent searches (last 5, deduplicated, localStorage) as clickable chips; hidden while browsing favorites
