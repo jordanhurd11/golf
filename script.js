@@ -40,6 +40,7 @@ let awaitingLocationPermission = false;
 
 class NotFoundError extends Error {}
 class RateLimitError extends Error {}
+class LocationUnavailableError extends Error {}
 
 class GeolocationError extends Error {
   constructor(message, code) {
@@ -507,17 +508,28 @@ async function useMyLocation() {
     } catch (geoErr) {
       console.error(geoErr);
       awaitingLocationPermission = geoErr instanceof GeolocationError && geoErr.code === "PERMISSION_DENIED";
-      ({ lat, lon, label } = await geolocateViaIp());
+      try {
+        ({ lat, lon, label } = await geolocateViaIp());
+      } catch (ipErr) {
+        console.error(ipErr);
+        // Distinct from a course-loading failure below — this specifically
+        // means BOTH location methods failed, not that courses failed to
+        // load for a location we did find.
+        throw new LocationUnavailableError();
+      }
     }
     await loadAndRenderCourses(lat, lon, label);
   } catch (err) {
     console.error(err);
     resultsEl.innerHTML = "";
-    if (err instanceof RateLimitError) {
+    if (err instanceof LocationUnavailableError) {
+      messageEl.textContent = "Couldn't determine your location, even approximately. Try searching by name instead.";
+      retryBtn.hidden = false;
+    } else if (err instanceof RateLimitError) {
       messageEl.textContent = "You're searching a bit too fast for this free API. Wait a few seconds and try again.";
       retryBtn.hidden = false;
     } else {
-      messageEl.textContent = "Couldn't determine your location, even approximately. Try searching by name instead.";
+      messageEl.textContent = "Found your location, but couldn't load golf courses right now. Please try again in a moment.";
       retryBtn.hidden = false;
     }
   } finally {
